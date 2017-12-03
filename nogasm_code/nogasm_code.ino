@@ -51,9 +51,6 @@
 #define BRIGHTNESS 255 //Subject to change, limits current that the LEDs draw
 
 //Encoder
-#define REDPIN   5 //RGB pins of the encoder LED
-#define GREENPIN 4
-#define BLUEPIN  3
 #define ENC_SW   6 //Pushbutton on the encoder
 Encoder myEnc(8, 7); //Quadrature inputs on pins 7,8
 
@@ -134,9 +131,6 @@ void beep_motor(int f1, int f2, int f3){
 }
 
 void setup() {
-  pinMode(REDPIN,   OUTPUT); //Connected to RGB LED in the encoder
-  pinMode(GREENPIN, OUTPUT);
-  pinMode(BLUEPIN,  OUTPUT);
   pinMode(ENC_SW,   INPUT); //Pin to read quadrature pulses from encoder
 
   pinMode(MOTPIN,OUTPUT); //Enable "analog" out (PWM)
@@ -165,13 +159,6 @@ void setup() {
 }
 
 //=======LED Drawing Functions=================
-
-void showKnobRGB(const CRGB& rgb)
-{
-  analogWrite(REDPIN,   rgb.r );
-  analogWrite(GREENPIN, rgb.g );
-  analogWrite(BLUEPIN,  rgb.b );
-}
 
 //Draw a "cursor", one pixel representing either a pressure or encoder position value
 //C1,C2,C3 are colors for each of 3 revolutions over the 13 LEDs (39 values)
@@ -330,27 +317,21 @@ uint8_t check_button(){
 void run_state_machine(uint8_t state){
   switch (state) {
       case MANUAL:
-        showKnobRGB(CRGB::Red);
         run_manual();
         break;
       case AUTO:
-        showKnobRGB(CRGB::Blue);
         run_auto();
         break;
       case OPT_SPEED:
-        showKnobRGB(CRGB::Green);
         run_opt_speed();
         break;
       case OPT_RAMPSPD:
-        showKnobRGB(CRGB::Yellow);
         run_opt_rampspd();
         break;
       case OPT_BEEP:
-        showKnobRGB(CRGB::Purple);
         run_opt_beep();
         break;
       case OPT_PRES:
-        showKnobRGB(CRGB::White);
         run_opt_pres();
         break;
       default:
@@ -370,7 +351,6 @@ uint8_t set_state(uint8_t btnState, uint8_t state){
     Serial.println("power off");
     fill_gradient_RGB(leds,0,CRGB::Black,NUM_LEDS-1,CRGB::Black);//Turn off LEDS
     FastLED.show();
-    showKnobRGB(CRGB::Black);
     analogWrite(MOTPIN, 0);
     beep_motor(2093,1396,1047);
     analogWrite(MOTPIN, 0); //Turn Motor off
