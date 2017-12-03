@@ -1,5 +1,9 @@
 # nogasm
-Software and hardware for Arduino-based orgasm prediction / detection
+Software and hardware for Arduino-based orgasm prediction / detection ... on protoboard!
+
+The nogasm is an amazing toy.  I wanted to make something easier to hack and more accessible to the homebuilder.  Fortunately headcrabned was kind enough to open source the whole thing.
+
+I ported it the Arduino Uno, and hacked around on perfboard until I had it working.  It works great and only requires a handful of readily available through-hole components.
 
 ### Vibrator
 The vibrator is made from a Mabuchi RS-555PH motor, with an eccentric mass pressed onto the shaft. These can be purchased pre-assembled, or built from the motor and some .88" to 1" diameter cylindrical brass stock.

@@ -1,4 +1,4 @@
-// Jul 2016 - Nogasm Code Rev. 3
+// Protogasm Code, forked from Nogasm Code Rev. 3
 /* Drives a vibrator and uses changes in pressure of an inflatable buttplug
  * to estimate a user's closeness to orgasm, and turn off the vibrator
  * before that point.
