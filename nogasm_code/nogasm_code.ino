@@ -140,6 +140,8 @@ void setup() {
   pinMode(ENC_SW,   INPUT); //Pin to read when encoder is pressed
   digitalWrite(ENC_SW, HIGH); // Encoder switch pullup
 
+  analogReference(EXTERNAL);
+
   pinMode(MOTPIN,OUTPUT); //Enable "analog" out (PWM)
   
   pinMode(BUTTPIN,INPUT); //default is 10 bit resolution (1024), 0-3.3
