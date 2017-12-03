@@ -30,11 +30,7 @@
  * 
  * There is some framework for more features like an adjustable "cool off" time 
  * other than the default 15 seconds, and options for LED brightness and enabling/
- * disabling beeps. Four DIP switches are included on the board to allow users to
- * change other software settings without reflashing code. One example use would 
- * be switch 1 toggling between the defaul ramping motor behavior, and a strict
- * ON/OFF output to the motor that could instead be used to toggle a relay for 
- * driving other toys.
+ * disabling beeps.
  * 
  * Note - Do not set all 13 LEDs to white at full brightness at once 
  * (RGB 255,255,255) It may overheat the voltage regulator and cause the board 
@@ -60,12 +56,6 @@
 #define BLUEPIN  3
 #define ENC_SW   6 //Pushbutton on the encoder
 Encoder myEnc(8, 7); //Quadrature inputs on pins 7,8
-
-//DIP Switches
-#define SW1PIN 12 //Dip switch pins, for setting software options without reflashing code
-#define SW2PIN 11
-#define SW3PIN 10
-#define SW4PIN 9
 
 //Motor
 #define MOTPIN 23
@@ -107,11 +97,7 @@ int sensitivity = 0; //orgasm detection sensitivity, persists through different 
 
 uint8_t state = MANUAL;
 //=======Global Settings=============================
-//DIP switch options:
-uint8_t MOT_MAX =   179; //By default, motor speed only ever reaches 179. Alternative is 255
-bool SW2 =        false;
-bool SW3 =        false;
-bool SW4 =        false;
+#define MOT_MAX 255 // Motor PWM maximum
 #define MOT_MIN 20  // Motor PWM minimum.  It needs a little more than this to start.
 
 CRGB leds[NUM_LEDS];
@@ -153,16 +139,6 @@ void setup() {
   pinMode(BLUEPIN,  OUTPUT);
   pinMode(ENC_SW,   INPUT); //Pin to read quadrature pulses from encoder
 
-  pinMode(SW1PIN,   INPUT); //Set DIP switch pins as inputs
-  pinMode(SW2PIN,   INPUT);
-  pinMode(SW3PIN,   INPUT);
-  pinMode(SW4PIN,   INPUT);
-
-  digitalWrite(SW1PIN, HIGH); //Enable pullup resistors on DIP switch pins.
-  digitalWrite(SW2PIN, HIGH); //They are tied to GND when switched on.
-  digitalWrite(SW3PIN, HIGH);
-  digitalWrite(SW4PIN, HIGH);
-
   pinMode(MOTPIN,OUTPUT); //Enable "analog" out (PWM)
   
   pinMode(BUTTPIN,INPUT); //default is 10 bit resolution (1024), 0-3.3
@@ -174,18 +150,6 @@ void setup() {
   digitalWrite(MOTPIN, LOW);//Make sure the motor is off
 
   delay(3000); // 3 second delay for recovery
-
-  //If a pin reads low, the switch is enabled. Here, we read in the DIP settings
-  //Right now, only SW1 is used, for enabling higher maximum motor speed.
-  if(digitalRead(SW1PIN)){
-    MOT_MAX = 179; //At the default low position, limit the motor speed
-  }
-  else{
-    MOT_MAX = 255; //When SW1 is flipped high, allow higher motor speeds
-  }
-  SW2 = (digitalRead(SW2PIN) == LOW);
-  SW3 = (digitalRead(SW3PIN) == LOW);
-  SW4 = (digitalRead(SW4PIN) == LOW);
 
   Serial.begin(115200);
 
