@@ -53,6 +53,8 @@
 //Encoder
 #define ENC_SW   5 //Pushbutton on the encoder
 Encoder myEnc(3, 2); //Quadrature inputs
+#define ENC_SW_UP   HIGH
+#define ENC_SW_DOWN LOW
 
 //Motor
 #define MOTPIN 9
@@ -131,7 +133,8 @@ void beep_motor(int f1, int f2, int f3){
 }
 
 void setup() {
-  pinMode(ENC_SW,   INPUT); //Pin to read quadrature pulses from encoder
+  pinMode(ENC_SW,   INPUT); //Pin to read when encoder is pressed
+  digitalWrite(ENC_SW, HIGH); // Encoder switch pullup
 
   pinMode(MOTPIN,OUTPUT); //Enable "analog" out (PWM)
   
@@ -287,17 +290,17 @@ void run_opt_pres() {
 
 //Poll the knob click button, and check for long/very long presses as well
 uint8_t check_button(){
-  static bool lastBtn = LOW;
+  static bool lastBtn = ENC_SW_DOWN;
   static unsigned long keyDownTime = 0;
   uint8_t btnState = BTN_NONE;
   bool thisBtn = digitalRead(ENC_SW);
 
   //Detect single presses, no repeating, on keyup
-  if(thisBtn == HIGH && lastBtn == LOW){
+  if(thisBtn == ENC_SW_DOWN && lastBtn == ENC_SW_UP){
     keyDownTime = millis();
   }
   
-  if (thisBtn == LOW && lastBtn == HIGH) { //there was a keyup
+  if (thisBtn == ENC_SW_UP && lastBtn == ENC_SW_DOWN) { //there was a keyup
     if((millis()-keyDownTime) >= V_LONG_PRESS_MS){
       btnState = BTN_V_LONG;
     }
