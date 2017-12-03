@@ -120,15 +120,14 @@ float motSpeed = 0; //Motor speed, 0-255 (float to maintain smooth ramping to lo
 //=======Setup=======================================
 //Beep out tones over the motor by frequency (1047,1396,2093) may work well
 void beep_motor(int f1, int f2, int f3){
-  if(motSpeed > 245) analogWrite(MOTPIN, 245); //make sure the frequency is audible
-  else if(motSpeed < 10) analogWrite(MOTPIN, 10);
-  analogWriteFrequency(MOTPIN, f1);
+  analogWrite(MOTPIN, 0);
+  tone(MOTPIN, f1);
   delay(250);
-  analogWriteFrequency(MOTPIN, f2);
+  tone(MOTPIN, f2);
   delay(250);
-  analogWriteFrequency(MOTPIN, f3);
+  tone(MOTPIN, f3);
   delay(250);
-  analogWriteFrequency(MOTPIN, 440);
+  noTone(MOTPIN);
   analogWrite(MOTPIN,motSpeed);
 }
 
