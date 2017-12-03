@@ -61,6 +61,11 @@ Encoder myEnc(3, 2); //Quadrature inputs
 
 //Pressure Sensor Analog In
 #define BUTTPIN A0
+// Sampling 4x and not dividing keeps the samples from the Arduino Uno's 10 bit
+// ADC in a similar range to the Teensy LC's 12-bit ADC.  This helps ensure the
+// feedback algorithm will behave similar to the original.
+#define OVERSAMPLE 4
+#define ADC_MAX 1023
 
 //=======Software/Timing options=====================
 #define FREQUENCY 60 //Update frequency in Hz
@@ -138,8 +143,6 @@ void setup() {
   pinMode(MOTPIN,OUTPUT); //Enable "analog" out (PWM)
   
   pinMode(BUTTPIN,INPUT); //default is 10 bit resolution (1024), 0-3.3
-  analogReadRes(12); //changing ADC resolution to 12 bits (4095)
-  analogReadAveraging(32); //To reduce noise, average 32 samples each read.
   
   raPressure.clear(); //Initialize a running pressure average
 
@@ -283,7 +286,7 @@ void run_opt_beep() {
 
 //Simply display the pressure analog voltage. Useful for debugging sensitivity issues.
 void run_opt_pres() {
-  int p = map(analogRead(BUTTPIN),0,4095,0,NUM_LEDS-1);
+  int p = map(analogRead(BUTTPIN),0,ADC_MAX,0,NUM_LEDS-1);
   draw_cursor(p,CRGB::White);
 }
 
@@ -428,7 +431,13 @@ void loop() {
       avgPressure = raPressure.getAverage();
     }
     
-    pressure = analogRead(BUTTPIN);
+    pressure=0;
+    for(uint8_t i=OVERSAMPLE; i; --i) {
+      pressure += analogRead(BUTTPIN);
+      if(i) {      // Don't delay after the last sample
+        delay(1);  // Spread samples out a little
+      }
+    }
     fadeToBlackBy(leds,NUM_LEDS,20); //Create a fading light effect. LED buffer is not otherwise cleared
     uint8_t btnState = check_button();
     state = set_state(btnState,state); //Set the next state based on this state and button presses
