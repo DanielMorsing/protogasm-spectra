@@ -142,6 +142,12 @@ void setup() {
 
   analogReference(EXTERNAL);
 
+  // Classic AVR based Arduinos have a PWM frequency of about 490Hz which
+  // causes the motor to whine.  Change the prescaler to achieve 31372Hz.
+  sbi(TCCR1B, CS10);
+  cbi(TCCR1B, CS11);
+  cbi(TCCR1B, CS12);
+
   pinMode(MOTPIN,OUTPUT); //Enable "analog" out (PWM)
   
   pinMode(BUTTPIN,INPUT); //default is 10 bit resolution (1024), 0-3.3
