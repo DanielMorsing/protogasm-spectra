@@ -45,20 +45,20 @@
 //=======Hardware Setup===============================
 //LEDs
 #define NUM_LEDS 24
-#define LED_PIN 17 //5V buffered pin on Teensy LC, single wire data out to WS8212Bs
+#define LED_PIN 10
 #define LED_TYPE    WS2812B
 #define COLOR_ORDER GRB
 #define BRIGHTNESS 50 //Subject to change, limits current that the LEDs draw
 
 //Encoder
-#define ENC_SW   6 //Pushbutton on the encoder
-Encoder myEnc(8, 7); //Quadrature inputs on pins 7,8
+#define ENC_SW   5 //Pushbutton on the encoder
+Encoder myEnc(3, 2); //Quadrature inputs
 
 //Motor
-#define MOTPIN 23
+#define MOTPIN 9
 
 //Pressure Sensor Analog In
-#define BUTTPIN 15
+#define BUTTPIN A0
 
 //=======Software/Timing options=====================
 #define FREQUENCY 60 //Update frequency in Hz
