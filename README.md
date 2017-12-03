@@ -8,6 +8,7 @@ I ported it the Arduino Uno, and hacked around on perfboard until I had it worki
 Some aspects have been simplified compared to the original electronics:
 * The DIP switches have been eliminated.  Options are configured in the source instead.
 * The RGB backlit rotary encoder has been replaced with a more common unlit one.  The mode is still visible on the LED ring.
+* It has more LEDs!  NeoPixel Rings with 24 LEDs are the right size for the project.
 
 ### Vibrator
 The vibrator is made from a Mabuchi RS-555PH motor, with an eccentric mass pressed onto the shaft. These can be purchased pre-assembled, or built from the motor and some .88" to 1" diameter cylindrical brass stock.

@@ -32,7 +32,7 @@
  * other than the default 15 seconds, and options for LED brightness and enabling/
  * disabling beeps.
  * 
- * Note - Do not set all 13 LEDs to white at full brightness at once 
+ * Note - Do not set all the LEDs to white at full brightness at once
  * (RGB 255,255,255) It may overheat the voltage regulator and cause the board 
  * to reset.
  */
@@ -44,11 +44,11 @@
 
 //=======Hardware Setup===============================
 //LEDs
-#define NUM_LEDS 13
+#define NUM_LEDS 24
 #define LED_PIN 17 //5V buffered pin on Teensy LC, single wire data out to WS8212Bs
 #define LED_TYPE    WS2812B
 #define COLOR_ORDER GRB
-#define BRIGHTNESS 255 //Subject to change, limits current that the LEDs draw
+#define BRIGHTNESS 50 //Subject to change, limits current that the LEDs draw
 
 //Encoder
 #define ENC_SW   6 //Pushbutton on the encoder
@@ -217,8 +217,8 @@ int encLimitRead(int minVal, int maxVal){
 // Manual vibrator control mode (red), still shows orgasm closeness in background
 void run_manual() {
   //In manual mode, only allow for 13 cursor positions, for adjusting motor speed.
-  int knob = encLimitRead(0,12);
-  motSpeed = map(knob, 0, 12, 0., (float)MOT_MAX);
+  int knob = encLimitRead(0,NUM_LEDS-1);
+  motSpeed = map(knob, 0, NUM_LEDS-1, 0., (float)MOT_MAX);
   analogWrite(MOTPIN, motSpeed);
 
   //gyrGraphDraw(avgPressure, 0, 4 * 3 * NUM_LEDS);
@@ -258,8 +258,8 @@ void run_auto() {
 //Setting menu for adjusting the maximum vibrator speed automatic mode will ramp up to
 void run_opt_speed() {
   Serial.println("speed settings");
-  int knob = encLimitRead(0,12);
-  motSpeed = map(knob, 0, 12, 0., (float)MOT_MAX);
+  int knob = encLimitRead(0,NUM_LEDS-1);
+  motSpeed = map(knob, 0, NUM_LEDS-1, 0., (float)MOT_MAX);
   analogWrite(MOTPIN, motSpeed);
   maxSpeed = motSpeed; //Set the maximum ramp-up speed in automatic mode
   //Little animation to show ramping up on the LEDs
