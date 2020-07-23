@@ -52,12 +52,9 @@
 
 //Encoder
 #define ENC_SW   5 //Pushbutton on the encoder
-Encoder myEnc(3, 2); //Quadrature inputs
+Encoder myEnc(2, 3); //Quadrature inputs
 #define ENC_SW_UP   HIGH
 #define ENC_SW_DOWN LOW
-
-//Motor
-#define MOTPIN 9
 
 //Pressure Sensor Analog In
 #define BUTTPIN A0
@@ -125,6 +122,7 @@ float motSpeed = 0; //Motor speed, 0-255 (float to maintain smooth ramping to lo
 //=======Setup=======================================
 //Beep out tones over the motor by frequency (1047,1396,2093) may work well
 void beep_motor(int f1, int f2, int f3){
+  /*
   analogWrite(MOTPIN, 0);
   tone(MOTPIN, f1);
   delay(250);
@@ -134,6 +132,21 @@ void beep_motor(int f1, int f2, int f3){
   delay(250);
   noTone(MOTPIN);
   analogWrite(MOTPIN,motSpeed);
+  */
+}
+
+void sendSpeed(uint8_t speed) {
+	if (Serial.availableForWrite() < 8) {
+		return;
+	}
+	uint8_t buf[6];
+	buf[0] = 0xAA;
+	buf[1] = 0xAA;
+	buf[2] = 0x02;
+	buf[3] = 0x08;
+	buf[4] = speed;
+	buf[5] = (uint8_t)255 - (buf[3] + buf[4]);
+	Serial.write(buf, 6);
 }
 
 void setup() {
@@ -141,24 +154,14 @@ void setup() {
   digitalWrite(ENC_SW, HIGH); // Encoder switch pullup
 
   analogReference(EXTERNAL);
-
-  // Classic AVR based Arduinos have a PWM frequency of about 490Hz which
-  // causes the motor to whine.  Change the prescaler to achieve 31372Hz.
-  sbi(TCCR1B, CS10);
-  cbi(TCCR1B, CS11);
-  cbi(TCCR1B, CS12);
-
-  pinMode(MOTPIN,OUTPUT); //Enable "analog" out (PWM)
   
   pinMode(BUTTPIN,INPUT); //default is 10 bit resolution (1024), 0-3.3
   
   raPressure.clear(); //Initialize a running pressure average
 
-  digitalWrite(MOTPIN, LOW);//Make sure the motor is off
-
   delay(3000); // 3 second delay for recovery
 
-  Serial.begin(115200);
+  Serial.begin(57600);
 
   FastLED.addLeds<LED_TYPE, LED_PIN, COLOR_ORDER>(leds, NUM_LEDS).setCorrection(TypicalLEDStrip);
   // limit power draw to .6A at 5v... Didn't seem to work in my FastLED version though
@@ -232,7 +235,7 @@ void run_manual() {
   //In manual mode, only allow for 13 cursor positions, for adjusting motor speed.
   int knob = encLimitRead(0,NUM_LEDS-1);
   motSpeed = map(knob, 0, NUM_LEDS-1, 0., (float)MOT_MAX);
-  analogWrite(MOTPIN, motSpeed);
+  sendSpeed(motSpeed);
 
   //gyrGraphDraw(avgPressure, 0, 4 * 3 * NUM_LEDS);
   int presDraw = map(constrain(pressure - avgPressure, 0, pLimit),0,pLimit,0,NUM_LEDS*3);
@@ -257,9 +260,9 @@ void run_auto() {
     motSpeed += motIncrement;
   }
   if (motSpeed > MOT_MIN) {
-    analogWrite(MOTPIN, (int) motSpeed);
+    sendSpeed((uint8_t) motSpeed);
   } else {
-    analogWrite(MOTPIN, 0);
+    sendSpeed(0);
   }
 
   int presDraw = map(constrain(pressure - avgPressure, 0, pLimit),0,pLimit,0,NUM_LEDS*3);
@@ -270,10 +273,10 @@ void run_auto() {
 
 //Setting menu for adjusting the maximum vibrator speed automatic mode will ramp up to
 void run_opt_speed() {
-  Serial.println("speed settings");
+  // Serial.println("speed settings");
   int knob = encLimitRead(0,NUM_LEDS-1);
   motSpeed = map(knob, 0, NUM_LEDS-1, 0., (float)MOT_MAX);
-  analogWrite(MOTPIN, motSpeed);
+  sendSpeed(motSpeed);
   maxSpeed = motSpeed; //Set the maximum ramp-up speed in automatic mode
   //Little animation to show ramping up on the LEDs
   static int visRamp = 0;
@@ -284,12 +287,12 @@ void run_opt_speed() {
 
 //Not yet added, but adjusts how quickly the vibrator turns back on after being triggered off
 void run_opt_rampspd() {
-  Serial.println("rampSpeed");
+  //Serial.println("rampSpeed");
 }
 
 //Also not completed, option for enabling/disabling beeps
 void run_opt_beep() {
-  Serial.println("Brightness Settings");
+  //Serial.println("Brightness Settings");
 }
 
 //Simply display the pressure analog voltage. Useful for debugging sensitivity issues.
@@ -361,12 +364,12 @@ uint8_t set_state(uint8_t btnState, uint8_t state){
   }
   if(btnState == BTN_V_LONG){
     //Turn the device off until woken up by the button
-    Serial.println("power off");
+    //Serial.println("power off");
     fill_gradient_RGB(leds,0,CRGB::Black,NUM_LEDS-1,CRGB::Black);//Turn off LEDS
     FastLED.show();
-    analogWrite(MOTPIN, 0);
+    sendSpeed(0);
     beep_motor(2093,1396,1047);
-    analogWrite(MOTPIN, 0); //Turn Motor off
+    sendSpeed(0); //Turn Motor off
     while(!digitalRead(ENC_SW))delay(1);
     beep_motor(1047,1396,2093);
     return MANUAL ;
@@ -388,7 +391,7 @@ uint8_t set_state(uint8_t btnState, uint8_t state){
         //return OPT_RAMPSPD;
         //return OPT_BEEP;
         motSpeed = 0;
-        analogWrite(MOTPIN, motSpeed); //Turn the motor off for the white pressure monitoring mode
+        sendSpeed(motSpeed); //Turn the motor off for the white pressure monitoring mode
         return OPT_PRES; //Skip beep and rampspeed settings for now
       case OPT_RAMPSPD: //Not yet implimented
         //motSpeed = 0;
@@ -458,11 +461,11 @@ void loop() {
     //Report pressure and motor data over USB for analysis / other uses. timestamps disabled by default
     //Serial.print(millis()); //Timestamp (ms)
     //Serial.print(",");
-    Serial.print(motSpeed); //Motor speed (0-255)
-    Serial.print(",");
-    Serial.print(pressure); //(Original ADC value - 12 bits, 0-4095)
-    Serial.print(",");
-    Serial.println(avgPressure); //Running average of (default last 25 seconds) pressure
+    // Serial.print(motSpeed); //Motor speed (0-255)
+    // Serial.print(",");
+    // Serial.print(pressure); //(Original ADC value - 12 bits, 0-4095)
+    // Serial.print(",");
+    // Serial.println(avgPressure); //Running average of (default last 25 seconds) pressure
 
   }
 }
