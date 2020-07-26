@@ -50,6 +50,9 @@
 #define COLOR_ORDER GRB
 #define BRIGHTNESS 50 //Subject to change, limits current that the LEDs draw
 
+
+#define RECORDMODE 0
+
 //Encoder
 #define ENC_SW   5 //Pushbutton on the encoder
 Encoder myEnc(2, 3); //Quadrature inputs
@@ -136,6 +139,9 @@ void beep_motor(int f1, int f2, int f3){
 }
 
 void sendSpeed(uint8_t speed) {
+	#if RECORDMODE
+		return;
+	#endif
 	if (Serial.availableForWrite() < 8) {
 		return;
 	}
@@ -459,13 +465,11 @@ void loop() {
     if(pressure > 4030)beep_motor(2093,2093,2093); //Three high beeps
 
     //Report pressure and motor data over USB for analysis / other uses. timestamps disabled by default
-    //Serial.print(millis()); //Timestamp (ms)
-    //Serial.print(",");
-    // Serial.print(motSpeed); //Motor speed (0-255)
-    // Serial.print(",");
-    // Serial.print(pressure); //(Original ADC value - 12 bits, 0-4095)
-    // Serial.print(",");
-    // Serial.println(avgPressure); //Running average of (default last 25 seconds) pressure
-
+    #if RECORDMODE
+    Serial.print(millis()); //Timestamp (ms)
+    Serial.print(",");
+    Serial.print(pressure); //(Original ADC value - 12 bits, 0-4095)
+    Serial.print("\n");
+    #endif
   }
 }
