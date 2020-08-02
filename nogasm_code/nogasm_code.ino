@@ -40,7 +40,10 @@
 #include <Encoder.h>
 #include <EEPROM.h>
 #include "FastLED.h"
-#include "RunningAverage.h"
+
+#define FHT_N 256
+#define LOG_OUT 1
+#include "FHT.h"
 
 //=======Hardware Setup===============================
 //LEDs
@@ -51,7 +54,7 @@
 #define BRIGHTNESS 50 //Subject to change, limits current that the LEDs draw
 
 
-#define RECORDMODE 0
+#define RECORDMODE 1
 
 //Encoder
 #define ENC_SW   5 //Pushbutton on the encoder
@@ -76,11 +79,6 @@ Encoder myEnc(2, 3); //Quadrature inputs
 #define period (1000/FREQUENCY)
 #define longBtnCount (LONG_PRESS_MS / period)
 
-//Running pressure average array length and update frequency
-#define RA_HIST_SECONDS 25
-#define RA_FREQUENCY 6
-#define RA_TICK_PERIOD (FREQUENCY / RA_FREQUENCY)
-RunningAverage raPressure(RA_FREQUENCY*RA_HIST_SECONDS);
 int sensitivity = 0; //orgasm detection sensitivity, persists through different states
 
 //=======State Machine Modes=========================
@@ -107,13 +105,16 @@ uint8_t state = MANUAL;
 CRGB leds[NUM_LEDS];
 
 int pressure = 0;
-int avgPressure = 0; //Running 25 second average pressure
+int avgPressure = 0; //TODO(dmo): fix this so that it's actually a running average
 //int bri =100; //Brightness setting
 int rampTimeS = 30; //Ramp-up time, in seconds
 #define DEFAULT_PLIMIT 600
 int pLimit = DEFAULT_PLIMIT; //Limit in change of pressure before the vibrator turns off
 int maxSpeed = 255; //maximum speed the motor will ramp up to in automatic mode
 float motSpeed = 0; //Motor speed, 0-255 (float to maintain smooth ramping to low speeds)
+
+int pressureHist[FHT_N];
+int pressure_index;
 
 //=======EEPROM Addresses============================
 //128b available on teensy LC
@@ -162,12 +163,20 @@ void setup() {
   analogReference(EXTERNAL);
   
   pinMode(BUTTPIN,INPUT); //default is 10 bit resolution (1024), 0-3.3
-  
-  raPressure.clear(); //Initialize a running pressure average
 
   delay(3000); // 3 second delay for recovery
 
-  Serial.begin(57600);
+  pressure_index = 0;
+
+  // fill the initial history with one value to avoid obvious artifacts
+  // during startup
+  pressure = analogRead(BUTTPIN)<<3;
+
+  for (int i = 0; i < FHT_N; i++) {
+    pressureHist[i] = pressure;
+  }
+
+  Serial.begin(115200);
 
   FastLED.addLeds<LED_TYPE, LED_PIN, COLOR_ORDER>(leds, NUM_LEDS).setCorrection(TypicalLEDStrip);
   // limit power draw to .6A at 5v... Didn't seem to work in my FastLED version though
@@ -442,19 +451,38 @@ void loop() {
   if (millis() % period == 0) {
     delay(1);
     
-    sampleTick++; //Add pressure samples to the running average slower than 60Hz
-    if (sampleTick % RA_TICK_PERIOD == 0) {
-      raPressure.addValue(pressure);
-      avgPressure = raPressure.getAverage();
+    pressure=analogRead(BUTTPIN)<<2;
+
+    pressureHist[pressure_index++] = pressure;
+    pressure_index &= FHT_N - 1;
+    // we shift by 3 to bring the range of the fht_input
+    // array more in line with the full range of the fht
+    // library
+    avgPressure = 0;
+    for (int i = 0; i < pressure_index; i++) {
+      // stupid maths
+      // Shift down to get a range from 0 to 4096
+      // down to 0 to 128
+      // 128 * 256 fits in a int16
+      // then when we have it all added up
+      // shift again by 3
+      // This gets a middle ground between predividing and
+      // getting silly results and postdividing and risking overflow during
+      // adding these results up
+      avgPressure += pressureHist[i]>>5;
+      fht_input[(FHT_N - pressure_index) + i] = pressureHist[i] << 3;
     }
-    
-    pressure=0;
-    for(uint8_t i=OVERSAMPLE; i; --i) {
-      pressure += analogRead(BUTTPIN);
-      if(i) {      // Don't delay after the last sample
-        delay(1);  // Spread samples out a little
-      }
+    for (int i = pressure_index; i < FHT_N; i++) {
+      avgPressure += pressureHist[i]>>5;
+      fht_input[i - pressure_index] = pressureHist[i] << 3;
     }
+    avgPressure >>= 3;
+
+    fht_window(); // window the data for better frequency response
+    fht_reorder(); // reorder the data before doing the fht
+    fht_run(); // process the data in the fht
+    fht_mag_log(); // turn it into a linear result
+
     fadeToBlackBy(leds,NUM_LEDS,20); //Create a fading light effect. LED buffer is not otherwise cleared
     uint8_t btnState = check_button();
     state = set_state(btnState,state); //Set the next state based on this state and button presses
@@ -466,10 +494,13 @@ void loop() {
 
     //Report pressure and motor data over USB for analysis / other uses. timestamps disabled by default
     #if RECORDMODE
-    Serial.print(millis()); //Timestamp (ms)
-    Serial.print(",");
-    Serial.print(pressure); //(Original ADC value - 12 bits, 0-4095)
-    Serial.print("\n");
+    Serial.write("\xAA\xAA\xAA");
+    unsigned long foo = millis();
+    Serial.write((uint8_t*)&foo, sizeof(foo));
+    Serial.write((uint8_t*)&pressure, sizeof(pressure));
+    for(int i = 0; i < FHT_N/2; i++) {
+      Serial.write(fht_log_out[i]);
+    }
     #endif
   }
 }
