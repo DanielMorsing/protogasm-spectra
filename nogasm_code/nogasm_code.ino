@@ -170,7 +170,7 @@ void setup() {
 
   // fill the initial history with one value to avoid obvious artifacts
   // during startup
-  pressure = analogRead(BUTTPIN)<<3;
+  pressure = analogRead(BUTTPIN)<<2;
 
   for (int i = 0; i < FHT_N; i++) {
     pressureHist[i] = pressure;
@@ -494,13 +494,11 @@ void loop() {
 
     //Report pressure and motor data over USB for analysis / other uses. timestamps disabled by default
     #if RECORDMODE
-    Serial.write("\xAA\xAA\xAA");
-    unsigned long foo = millis();
-    Serial.write((uint8_t*)&foo, sizeof(foo));
-    Serial.write((uint8_t*)&pressure, sizeof(pressure));
-    for(int i = 0; i < FHT_N/2; i++) {
-      Serial.write(fht_log_out[i]);
-    }
+    Serial.print(millis());
+    Serial.print(",");
+    Serial.print(pressure);
+    Serial.print(",");
+    Serial.println(avgPressure);
     #endif
   }
 }
