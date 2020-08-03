@@ -472,6 +472,10 @@ void loop() {
       fht_window(); // window the data for better frequency response
       fht_reorder(); // reorder the data before doing the fht
       fht_run(); // process the data in the fht
+
+      // TODO(dmo): try this with a decibel or linear 8-bit scaled
+      // result. Right now the difference between noise and signal is
+      // low, so the display jumps all over the place
       fht_mag_lin(); // turn it into a linear result
 
       tick = 0;
