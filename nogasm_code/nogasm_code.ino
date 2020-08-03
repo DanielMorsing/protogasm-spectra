@@ -42,7 +42,7 @@
 #include "FastLED.h"
 
 #define FHT_N 256
-#define LOG_OUT 1
+#define LIN_OUT 1
 #include "FHT.h"
 
 //=======Hardware Setup===============================
@@ -67,7 +67,6 @@ Encoder myEnc(2, 3); //Quadrature inputs
 // Sampling 4x and not dividing keeps the samples from the Arduino Uno's 10 bit
 // ADC in a similar range to the Teensy LC's 12-bit ADC.  This helps ensure the
 // feedback algorithm will behave similar to the original.
-#define OVERSAMPLE 4
 #define ADC_MAX 1023
 
 //=======Software/Timing options=====================
@@ -105,7 +104,7 @@ uint8_t state = MANUAL;
 CRGB leds[NUM_LEDS];
 
 int pressure = 0;
-int avgPressure = 0; //TODO(dmo): fix this so that it's actually a running average
+int avgPressure = 1500; //TODO(dmo): fix this so that it's actually a running average
 //int bri =100; //Brightness setting
 int rampTimeS = 30; //Ramp-up time, in seconds
 #define DEFAULT_PLIMIT 600
@@ -122,22 +121,6 @@ int pressure_index;
 #define MAX_SPEED_ADDR    2
 #define SENSITIVITY_ADDR  3
 //#define RAMPSPEED_ADDR    4 //For now, ramp speed adjustments aren't implemented
-
-//=======Setup=======================================
-//Beep out tones over the motor by frequency (1047,1396,2093) may work well
-void beep_motor(int f1, int f2, int f3){
-  /*
-  analogWrite(MOTPIN, 0);
-  tone(MOTPIN, f1);
-  delay(250);
-  tone(MOTPIN, f2);
-  delay(250);
-  tone(MOTPIN, f3);
-  delay(250);
-  noTone(MOTPIN);
-  analogWrite(MOTPIN,motSpeed);
-  */
-}
 
 void sendSpeed(uint8_t speed) {
 	#if RECORDMODE
@@ -170,7 +153,7 @@ void setup() {
 
   // fill the initial history with one value to avoid obvious artifacts
   // during startup
-  pressure = analogRead(BUTTPIN)<<2;
+  pressure = analogRead(BUTTPIN)<<5;
 
   for (int i = 0; i < FHT_N; i++) {
     pressureHist[i] = pressure;
@@ -186,7 +169,6 @@ void setup() {
   //Recall saved settings from memory
   sensitivity = EEPROM.read(SENSITIVITY_ADDR);
   maxSpeed = min(EEPROM.read(MAX_SPEED_ADDR),MOT_MAX); //Obey the MOT_MAX the first power  cycle after chaning it.
-  beep_motor(1047,1396,2093); //Power on beep
 }
 
 //=======LED Drawing Functions=================
@@ -382,11 +364,8 @@ uint8_t set_state(uint8_t btnState, uint8_t state){
     //Serial.println("power off");
     fill_gradient_RGB(leds,0,CRGB::Black,NUM_LEDS-1,CRGB::Black);//Turn off LEDS
     FastLED.show();
-    sendSpeed(0);
-    beep_motor(2093,1396,1047);
     sendSpeed(0); //Turn Motor off
     while(!digitalRead(ENC_SW))delay(1);
-    beep_motor(1047,1396,2093);
     return MANUAL ;
   }
   else if(btnState == BTN_SHORT){
@@ -446,59 +425,65 @@ uint8_t set_state(uint8_t btnState, uint8_t state){
 //=======Main Loop=============================
 void loop() {
   static uint8_t state = MANUAL;
-  static int sampleTick = 0;
-  //Run this section at the update frequency (default 60 Hz)
-  if (millis() % period == 0) {
-    delay(1);
-    
-    pressure=analogRead(BUTTPIN)<<2;
+  static int pressureAccum = 0;
+  static uint8_t tick = 0;
+  static unsigned long lastsample = 0;
+  // sample every other millisecond as a
+  // noise reduction strategy
+  unsigned long time = millis();
+  if (time % 2 == 0 && time != lastsample) {
+    lastsample = time;
+    pressureAccum += analogRead(BUTTPIN);
+    tick++;
 
-    pressureHist[pressure_index++] = pressure;
-    pressure_index &= FHT_N - 1;
-    // we shift by 3 to bring the range of the fht_input
-    // array more in line with the full range of the fht
-    // library
-    avgPressure = 0;
-    for (int i = 0; i < pressure_index; i++) {
-      // stupid maths
-      // Shift down to get a range from 0 to 4096
-      // down to 0 to 128
-      // 128 * 256 fits in a int16
-      // then when we have it all added up
-      // shift again by 3
-      // This gets a middle ground between predividing and
-      // getting silly results and postdividing and risking overflow during
-      // adding these results up
-      avgPressure += pressureHist[i]>>5;
-      fht_input[(FHT_N - pressure_index) + i] = pressureHist[i] << 3;
+    // every 8th tick, run the display
+    // this resolves to a 60hz update for the display
+    if (tick % 8 == 0) {
+      fadeToBlackBy(leds,NUM_LEDS,20); //Create a fading light effect. LED buffer is not otherwise cleared
+      uint8_t btnState = check_button();
+      state = set_state(btnState,state); //Set the next state based on this state and button presses
+      run_state_machine(state);
+      FastLED.show(); //Update the physical LEDs to match the buffer in software
     }
-    for (int i = pressure_index; i < FHT_N; i++) {
-      avgPressure += pressureHist[i]>>5;
-      fht_input[i - pressure_index] = pressureHist[i] << 3;
+    // update the FHT and pressure at 1000ms/64ms hz
+    // around 15.625
+    // This should get us the most oversample + the largest
+    // window for the frequencies we want, between 4 and 8.
+    // (we don't actually get 8, but it's close enough to give a decent
+    // power spectrum
+    if (tick % 32 == 0) {
+      pressure = pressureAccum;
+      pressureAccum = 0;
+
+      pressureHist[pressure_index++] = pressure;
+      pressure_index &= FHT_N - 1;
+      for (int i = 0; i < pressure_index; i++) {
+        fht_input[(FHT_N - pressure_index) + i] = pressureHist[i];
+      }
+      for (int i = pressure_index; i < FHT_N; i++) {
+        fht_input[i - pressure_index] = pressureHist[i];
+      }
+
+      fht_window(); // window the data for better frequency response
+      fht_reorder(); // reorder the data before doing the fht
+      fht_run(); // process the data in the fht
+      fht_mag_lin(); // turn it into a linear result
+
+      tick = 0;
+
+      //Report pressure and motor data over USB for analysis / other uses. timestamps disabled by default
+      #if RECORDMODE
+      Serial.print(millis());
+      Serial.print(",");
+      Serial.print(pressure);
+      Serial.print(",");
+      int specPower = 0;
+      for (int i = 64; i < FHT_N/2; i++) {
+        specPower += fht_lin_out[i];
+      }
+      Serial.print(specPower);
+      Serial.print("\n");
+      #endif
     }
-    avgPressure >>= 3;
-
-    fht_window(); // window the data for better frequency response
-    fht_reorder(); // reorder the data before doing the fht
-    fht_run(); // process the data in the fht
-    fht_mag_log(); // turn it into a linear result
-
-    fadeToBlackBy(leds,NUM_LEDS,20); //Create a fading light effect. LED buffer is not otherwise cleared
-    uint8_t btnState = check_button();
-    state = set_state(btnState,state); //Set the next state based on this state and button presses
-    run_state_machine(state);
-    FastLED.show(); //Update the physical LEDs to match the buffer in software
-
-    //Alert that the Pressure voltage amplifier is railing, and the trim pot needs to be adjusted
-    if(pressure > 4030)beep_motor(2093,2093,2093); //Three high beeps
-
-    //Report pressure and motor data over USB for analysis / other uses. timestamps disabled by default
-    #if RECORDMODE
-    Serial.print(millis());
-    Serial.print(",");
-    Serial.print(pressure);
-    Serial.print(",");
-    Serial.println(avgPressure);
-    #endif
   }
 }
