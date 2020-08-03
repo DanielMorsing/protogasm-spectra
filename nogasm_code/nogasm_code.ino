@@ -108,7 +108,7 @@ int specPower = 0;
 //int bri =100; //Brightness setting
 int rampTimeS = 30; //Ramp-up time, in seconds
 #define DEFAULT_SPLIMIT 300
-#define SPECTRAL_NOISE_FLOOR 90
+#define SPECTRAL_NOISE_FLOOR 30
 int spLimit = DEFAULT_SPLIMIT; //Limit in change of pressure before the vibrator turns off
 int maxSpeed = 255; //maximum speed the motor will ramp up to in automatic mode
 float motSpeed = 0; //Motor speed, 0-255 (float to maintain smooth ramping to low speeds)
@@ -481,6 +481,10 @@ void loop() {
       tick = 0;
       specPower = 0;
       for (int i = 64; i < FHT_N/2; i++) {
+        if (fht_lin_out[i] > 0) {
+          // assume that a value of 0 is just noise
+          fht_lin_out[i] -= 1;
+        }
         specPower += fht_lin_out[i];
       }
 
