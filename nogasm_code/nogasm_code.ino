@@ -104,11 +104,12 @@ uint8_t state = MANUAL;
 CRGB leds[NUM_LEDS];
 
 int pressure = 0;
-int avgPressure = 1500; //TODO(dmo): fix this so that it's actually a running average
+int specPower = 0;
 //int bri =100; //Brightness setting
 int rampTimeS = 30; //Ramp-up time, in seconds
-#define DEFAULT_PLIMIT 600
-int pLimit = DEFAULT_PLIMIT; //Limit in change of pressure before the vibrator turns off
+#define DEFAULT_SPLIMIT 300
+#define SPECTRAL_NOISE_FLOOR 90
+int spLimit = DEFAULT_SPLIMIT; //Limit in change of pressure before the vibrator turns off
 int maxSpeed = 255; //maximum speed the motor will ramp up to in automatic mode
 float motSpeed = 0; //Motor speed, 0-255 (float to maintain smooth ramping to low speeds)
 
@@ -159,7 +160,11 @@ void setup() {
     pressureHist[i] = pressure;
   }
 
+  #if RECORDMODE
   Serial.begin(115200);
+  #else
+  Serial.begin(57600);
+  #endif
 
   FastLED.addLeds<LED_TYPE, LED_PIN, COLOR_ORDER>(leds, NUM_LEDS).setCorrection(TypicalLEDStrip);
   // limit power draw to .6A at 5v... Didn't seem to work in my FastLED version though
@@ -235,7 +240,7 @@ void run_manual() {
   sendSpeed(motSpeed);
 
   //gyrGraphDraw(avgPressure, 0, 4 * 3 * NUM_LEDS);
-  int presDraw = map(constrain(pressure - avgPressure, 0, pLimit),0,pLimit,0,NUM_LEDS*3);
+  int presDraw = map(specPower,SPECTRAL_NOISE_FLOOR,spLimit,0,NUM_LEDS*3);
   draw_bars_3(presDraw, CRGB::Green,CRGB::Yellow,CRGB::Red);
   draw_cursor(knob, CRGB::Red);
 }
@@ -248,9 +253,9 @@ void run_auto() {
   int knob = encLimitRead(0,(3*NUM_LEDS)-1);
   sensitivity = knob*4; //Save the setting if we leave and return to this state
   //Reverse "Knob" to map it onto a pressure limit, so that it effectively adjusts sensitivity
-  pLimit = map(knob, 0, 3 * (NUM_LEDS - 1), 600, 1); //set the limit of delta pressure before the vibrator turns off
+  spLimit = map(knob, 0, 3 * (NUM_LEDS - 1), 500, 1); //set the limit of delta pressure before the vibrator turns off
   //When someone clenches harder than the pressure limit
-  if (pressure - avgPressure > pLimit) {
+  if (specPower > spLimit) {
     motSpeed = -.5*(float)rampTimeS*((float)FREQUENCY*motIncrement);//Stay off for a while (half the ramp up time)
   }
   else if (motSpeed < (float)maxSpeed) {
@@ -262,7 +267,7 @@ void run_auto() {
     sendSpeed(0);
   }
 
-  int presDraw = map(constrain(pressure - avgPressure, 0, pLimit),0,pLimit,0,NUM_LEDS*3);
+  int presDraw = map(specPower,SPECTRAL_NOISE_FLOOR,spLimit,0,NUM_LEDS*3);
   draw_bars_3(presDraw, CRGB::Green,CRGB::Yellow,CRGB::Red);
   draw_cursor_3(knob, CRGB(50,50,200),CRGB::Blue,CRGB::Purple);
 
@@ -470,6 +475,10 @@ void loop() {
       fht_mag_lin(); // turn it into a linear result
 
       tick = 0;
+      specPower = 0;
+      for (int i = 64; i < FHT_N/2; i++) {
+        specPower += fht_lin_out[i];
+      }
 
       //Report pressure and motor data over USB for analysis / other uses. timestamps disabled by default
       #if RECORDMODE
@@ -477,11 +486,11 @@ void loop() {
       Serial.print(",");
       Serial.print(pressure);
       Serial.print(",");
-      int specPower = 0;
-      for (int i = 64; i < FHT_N/2; i++) {
-        specPower += fht_lin_out[i];
-      }
       Serial.print(specPower);
+      Serial.print(",");
+      Serial.print(spLimit);
+      Serial.print(",");
+      Serial.print(motSpeed);
       Serial.print("\n");
       #endif
     }
