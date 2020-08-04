@@ -6,11 +6,16 @@
 // Instead of using pressure level to cut off the vibe, we use the power spectra
 // in the 4-8hz range, otherwise the functionality is pretty much the same
 
+// IMPORTANT: you need to use the https://github.com/DanielMorsing/ArduinoFHT library
+// for FHT. The one from the usual site makes map() give weird results
+
 // NOTE that instead of using a motor pin, I send a command over UART
 // to another arduino. This is so that it can work together with a previous project
 // of mine. If you want to use this on a regular protogasm, you'll have to
 // modify the motor control back to the previous version. This also means
 // that the beeps have been excised.
+
+// Also because of a wiring mishap, the encoder pins are reversed.
 
 // TODO(dmo): The display for the edging mode is still very jumpy
 
