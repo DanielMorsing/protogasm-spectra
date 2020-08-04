@@ -10,6 +10,10 @@ Some aspects have been simplified compared to the original electronics:
 * The RGB backlit rotary encoder has been replaced with a more common unlit one.  The mode is still visible on the LED ring.
 * It has more LEDs!  NeoPixel Rings with 24 LEDs are the right size for the project.
 
+# Daniel's fork
+
+This repo is my fork of the code for using power spectra instead of pressure level.
+
 ## Getting started
 
 * [RTFM](user_guide/Nogasm%20User%20Guide.pdf)
