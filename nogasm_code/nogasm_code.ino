@@ -54,7 +54,7 @@
 #define BRIGHTNESS 50 //Subject to change, limits current that the LEDs draw
 
 
-#define RECORDMODE 1
+#define RECORDMODE 0
 
 //Encoder
 #define ENC_SW   5 //Pushbutton on the encoder
